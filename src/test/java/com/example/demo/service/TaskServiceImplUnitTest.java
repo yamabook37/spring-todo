@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.demo.dao.TaskDao;
 import com.example.demo.entity.Task;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TaskServiceImplの単体テスト")
@@ -29,30 +31,26 @@ class TaskServiceImplUnitTest {
     private TaskServiceImpl taskServiceImpl;
 
     @Test // テストケース
-    @DisplayName("テーブルtaskの全件取得で0件の場合のテスト")
-        // テスト名
+    @DisplayName("テスト:テーブルtaskの全件取得で0件の場合")
     void testFindAllReturnEmptyList() {
 
     	//空のリスト
     	List<Task> list = new ArrayList<>();
-
-        // モッククラスのI/Oをセット（findAll()の型と異なる戻り値はNG）
+        // モッククラスのI/Oをセット（findAll()の型と異なる戻り値はNG）,実際のlistではなく指定した引数をOutputにセット
         when(dao.findAll()).thenReturn(list);
 
         // サービスを実行
-        List<Task> actualList= taskServiceImpl.findAll();
+        List<Task> actualList = taskServiceImpl.findAll();
 
         // モックの指定メソッドの実行回数を検査
         verify(dao, times(1)).findAll();
 
         // 戻り値の検査(expected, actual)
         Assertions.assertEquals(0, actualList.size());
-
     }
 
     @Test // テストケース
-    @DisplayName("テーブルTaskの全件取得で2件の場合のテスト")
-        // テスト名
+    @DisplayName("テスト:テーブルTaskの全件取得で2件の場合")
     void testFindAllReturnList() {
 
     	//モックから返すListに2つのTaskオブジェクトをセット
@@ -66,7 +64,7 @@ class TaskServiceImplUnitTest {
         when(dao.findAll()).thenReturn(list);
 
         // サービスを実行
-        List<Task> actualList= taskServiceImpl.findAll();
+        List<Task> actualList = taskServiceImpl.findAll();
 
         // モックの指定メソッドの実行回数を検査
         verify(dao, times(1)).findAll();
@@ -77,41 +75,55 @@ class TaskServiceImplUnitTest {
     }
 
     @Test // テストケース
-    @DisplayName("タスクが取得できない場合のテスト")
-        // テスト名
+    @DisplayName("テスト:タスクが取得できない場合")
     void testGetTaskThrowException() {
 
         // モッククラスのI/Oをセット
+        when(dao.findById(0)).thenThrow(new EmptyResultDataAccessException(1));
 
         //タスクが取得できないとTaskNotFoundExceptionが発生することを検査
+        try {
+            Optional<Task> task0 = taskServiceImpl.getTask(0);
+        } catch (TaskNotFoundException e) {
+            Assertions.assertEquals(e.getMessage(), "[ex001] 指定されたタスクが存在しません");
+        }
 
     }
 
     @Test // テストケース
-    @DisplayName("タスクを1件取得した場合のテスト")
-        // テスト名
+    @DisplayName("テスト:タスクを1件取得した場合")
     void testGetTaskReturnOne() {
 
     	//Taskをデフォルト値でインスタンス化
+        Task task = new Task();
+        Optional<Task> taskOpt = Optional.ofNullable(task);
 
         // モッククラスのI/Oをセット
+        when(dao.findById(1)).thenReturn(taskOpt);
 
         // サービスを実行
+        Optional<Task> taskActual = taskServiceImpl.getTask(1);
 
         // モックの指定メソッドの実行回数を検査
+        verify(dao, times(1)).findById(1);
 
         //Taskが存在していることを確認
-
+        Assertions.assertTrue(taskActual.isPresent());
     }
 
     @Test // テストケース　ユニットテストではデータベースの例外は考えない
-    @DisplayName("削除対象が存在しない場合、例外が発生することを確認するテスト")
-        // テスト名
+    @DisplayName("テスト:削除対象が存在しない場合、例外が発生することを確認する")
     void throwNotFoundException() {
 
         // モッククラスのI/Oをセット
+        when(dao.deleteById(0)).thenReturn(0);
 
     	//削除対象が存在しない場合、例外が発生することを検査
+        try {
+            taskServiceImpl.deleteById(0);
+        } catch (TaskNotFoundException e) {
+            Assertions.assertEquals(e.getMessage(), "[ex003] 削除するタスクが存在しません");
+        }
 
     }
 }
